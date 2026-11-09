@@ -427,7 +427,7 @@
        }
  
     }
-@@ -501,16 +_,67 @@
+@@ -501,17 +_,71 @@
  
     }
  
@@ -441,20 +441,24 @@
 -      StringReader stringreader = new StringReader(p_9847_.m_133904_());
 -      if (stringreader.canRead() && stringreader.peek() == '/') {
 -         stringreader.skip();
+-      }
+-
+-      ParseResults<CommandSourceStack> parseresults = this.f_9745_.m_129892_().m_82094_().parse(stringreader, this.f_9743_.m_20203_());
+-      this.f_9745_.m_129892_().m_82094_().getCompletionSuggestions(parseresults).thenAccept((p_238197_) -> {
+-         this.f_9742_.m_129512_(new ClientboundCommandSuggestionsPacket(p_9847_.m_133901_(), p_238197_));
+-      });
 +      // PacketUtils.ensureRunningOnSameThread(pPacket, this, this.player.serverLevel()); // Paper - run this async
 +      // CraftBukkit start
 +      if (f_9750_.addAndGet(1) > 500 && !this.f_9745_.m_6846_().m_11303_(this.f_9743_.m_36316_())) {
 +         this.m_9942_(Component.m_237115_("disconnect.spam"));
 +         f_9745_.scheduleOnMain(() -> ServerGamePacketListenerImpl.this.m_9942_(Component.m_237110_("disconnect.spam", new Object[0]))); // Paper
 +         return;
-       }
--
--      ParseResults<CommandSourceStack> parseresults = this.f_9745_.m_129892_().m_82094_().parse(stringreader, this.f_9743_.m_20203_());
--      this.f_9745_.m_129892_().m_82094_().getCompletionSuggestions(parseresults).thenAccept((p_238197_) -> {
--         this.f_9742_.m_129512_(new ClientboundCommandSuggestionsPacket(p_9847_.m_133901_(), p_238197_));
++      }
 +      // CraftBukkit end
 +      // Paper start - async tab completion
-+      TAB_COMPLETE_EXECUTOR.execute(new Runnable() {
++      // Mohist - classes declared before handleInteract are named, never anonymous: javac numbers anonymous
++      // classes in source order, and mods mixin into ServerGamePacketListenerImpl$1 expecting the interact handler
++      class AsyncTabCompleteTask implements Runnable {
 +          @Override
 +          public void run() {
 +              StringReader stringreader = new StringReader(p_9847_.m_133904_());
@@ -500,9 +504,11 @@
 +                  f_9743_.f_8906_.m_9829_(new ClientboundCommandSuggestionsPacket(p_9847_.m_133901_(), builder.buildFuture().join()));
 +              }
 +          }
-       });
++      }
++      TAB_COMPLETE_EXECUTOR.execute(new AsyncTabCompleteTask());
     }
  
+    public void m_7192_(ServerboundSetCommandBlockPacket p_9911_) {
 @@ -600,7 +_,21 @@
  
     public void m_7965_(ServerboundPickItemPacket p_9880_) {
@@ -1258,7 +1264,7 @@
              this.m_9829_(new ClientboundSystemChatPacket(Component.m_237115_("chat.disabled.options").m_130940_(ChatFormatting.RED), false));
              return Optional.empty();
           } else {
-@@ -1316,13 +_,41 @@
+@@ -1316,13 +_,43 @@
     }
  
     private void m_243086_(PlayerChatMessage p_243277_) {
@@ -1270,12 +1276,14 @@
 +         f_9744_.warn(this.f_9743_.m_6302_() + " tried to send an empty message");
 +      } else if (getCraftPlayer().isConversing()) {
 +         final String conversationInput = s;
-+         this.f_9745_.processQueue.add(new Runnable() {
++         // Mohist - named, not anonymous, to keep the interact handler at ServerGamePacketListenerImpl$1
++         class ConversationInputTask implements Runnable {
 +             @Override
 +             public void run() {
 +                 ServerGamePacketListenerImpl.this.getCraftPlayer().acceptConversationInput(conversationInput);
 +             }
-+         });
++         }
++         this.f_9745_.processQueue.add(new ConversationInputTask());
 +      } else if (this.f_9743_.m_9241_() == ChatVisiblity.SYSTEM) { // Re-add "Command Only" flag check
 +         this.m_9829_(new ClientboundSystemChatPacket(Component.m_237115_("chat.cannotSend").m_130940_(ChatFormatting.RED), false));
 +      } else {
@@ -1305,7 +1313,7 @@
           this.m_9942_(Component.m_237115_("disconnect.spam"));
        }
  
-@@ -1340,12 +_,64 @@
+@@ -1340,12 +_,66 @@
  
     public void m_7953_(ServerboundSwingPacket p_9926_) {
        PacketUtils.m_131359_(p_9926_, this, this.f_9743_.m_284548_());
@@ -1322,13 +1330,15 @@
 +      double d3 = f_9743_.f_8941_.m_9290_() == GameType.CREATIVE ? 5.0D : 4.5D;
 +      // SPIGOT-5607: Only call interact event if no block or entity is being clicked. Use bukkit ray trace method, because it handles blocks and entities at the same time
 +      // SPIGOT-7429: Make sure to call PlayerInteractEvent for spectators and non-pickable entities
-+      org.bukkit.util.RayTraceResult result = this.f_9743_.m_9236_().getWorld().rayTrace(origin, origin.getDirection(), d3, org.bukkit.FluidCollisionMode.NEVER, false, 0.1, new Predicate<org.bukkit.entity.Entity>() {
++      // Mohist - named, not anonymous, to keep the interact handler at ServerGamePacketListenerImpl$1
++      class RogueSwingFilter implements Predicate<org.bukkit.entity.Entity> {
 +          @Override
 +          public boolean test(org.bukkit.entity.Entity entity) {
 +              Entity handle = ((CraftEntity) entity).getHandle();
 +              return entity != ServerGamePacketListenerImpl.this.f_9743_.getBukkitEntity() && ServerGamePacketListenerImpl.this.f_9743_.getBukkitEntity().canSee(entity) && !handle.m_5833_() && handle.m_6087_() && !handle.m_20365_(f_9743_);
 +          }
-+      });
++      }
++      org.bukkit.util.RayTraceResult result = this.f_9743_.m_9236_().getWorld().rayTrace(origin, origin.getDirection(), d3, org.bukkit.FluidCollisionMode.NEVER, false, 0.1, new RogueSwingFilter());
 +      if (result == null) {
 +         CraftEventFactory.callPlayerInteractEvent(this.f_9743_, Action.LEFT_CLICK_AIR, this.f_9743_.m_150109_().m_36056_(), InteractionHand.MAIN_HAND);
 +      }
@@ -1383,55 +1393,65 @@
        this.m_9829_(new ClientboundPlayerChatPacket(p_250321_.f_243882_().f_244443_(), p_250321_.f_243882_().f_244066_(), p_250321_.f_244279_(), p_250321_.f_240885_().m_253217_(this.f_243718_), p_250321_.f_237215_(), p_250321_.f_242992_(), p_250910_.m_240987_(this.f_9743_.m_9236_().m_9598_())));
        this.m_241992_(p_250321_);
     }
-@@ -1430,6 +_,8 @@
+@@ -1430,25 +_,70 @@
  
     public void m_6946_(ServerboundInteractPacket p_9866_) {
        PacketUtils.m_131359_(p_9866_, this, this.f_9743_.m_284548_());
+-      final ServerLevel serverlevel = this.f_9743_.m_284548_();
+-      final Entity entity = p_9866_.m_179603_(serverlevel);
 +      if (this.f_9743_.m_6107_()) return; // CraftBukkit
 +      if (BanItem.check(f_9743_)) return; // Mohist
-       final ServerLevel serverlevel = this.f_9743_.m_284548_();
-       final Entity entity = p_9866_.m_179603_(serverlevel);
++      final ServerLevel level = this.f_9743_.m_284548_();
++      final Entity target = p_9866_.m_179603_(level);
        this.f_9743_.m_9243_();
-@@ -1440,13 +_,56 @@
+       this.f_9743_.m_20260_(p_9866_.m_134061_());
+-      if (entity != null) {
+-         if (!serverlevel.m_6857_().m_61937_(entity.m_20183_())) {
++      if (target != null) {
++         if (!level.m_6857_().m_61937_(target.m_20183_())) {
+             return;
           }
  
-          AABB aabb = entity.m_20191_();
+-         AABB aabb = entity.m_20191_();
 -         if (aabb.m_272282_(this.f_9743_.m_146892_()) < f_215198_) {
-+         if (this.f_9743_.canReachRaw(entity, 3.0)) { // Vanilla uses MAX_INTERACTION_DISTANCE which is 6*6 default entity reach is 3.0 so add 3.0 padding
++         AABB aabb = target.m_20191_();
++         if (this.f_9743_.canReachRaw(target, 3.0)) { // Vanilla uses MAX_INTERACTION_DISTANCE which is 6*6 default entity reach is 3.0 so add 3.0 padding
              p_9866_.m_179617_(new ServerboundInteractPacket.Handler() {
 -               private void m_143678_(InteractionHand p_143679_, ServerGamePacketListenerImpl.EntityInteraction p_143680_) {
 +               PlayerInteractEntityEvent event;
-+               private void performInteraction(InteractionHand p_143679_, ServerGamePacketListenerImpl.EntityInteraction p_143680_) { // CraftBukkit
++               private void m_143678_(InteractionHand p_143679_, ServerGamePacketListenerImpl.EntityInteraction p_143680_) { // CraftBukkit
                    ItemStack itemstack = ServerGamePacketListenerImpl.this.f_9743_.m_21120_(p_143679_);
-                   if (itemstack.m_246617_(serverlevel.m_246046_())) {
+-                  if (itemstack.m_246617_(serverlevel.m_246046_())) {
++                  if (itemstack.m_246617_(level.m_246046_())) {
                       ItemStack itemstack1 = itemstack.m_41777_();
+-                     InteractionResult interactionresult = p_143680_.m_143694_(ServerGamePacketListenerImpl.this.f_9743_, entity, p_143679_);
 +                     // CraftBukkit start
 +                     ItemStack itemInHand = ServerGamePacketListenerImpl.this.f_9743_.m_21120_(p_143679_);
-+                     boolean triggerLeashUpdate = itemInHand != null && itemInHand.m_41720_() == Items.f_42655_ && entity instanceof Mob;
++                     boolean triggerLeashUpdate = itemInHand != null && itemInHand.m_41720_() == Items.f_42655_ && target instanceof Mob;
 +                     Item origItem = f_9743_.m_150109_().m_36056_() == null ? null : f_9743_.m_150109_().m_36056_().m_41720_();
 +
 +                     cserver.getPluginManager().callEvent(event);
 +
 +                     // Entity in bucket - SPIGOT-4048 and SPIGOT-6859a
-+                     if ((entity instanceof Bucketable && entity instanceof LivingEntity && origItem != null && origItem.m_5456_() == Items.f_42447_) && (event.isCancelled() || f_9743_.m_150109_().m_36056_() == null || f_9743_.m_150109_().m_36056_().m_41720_() != origItem)) {
-+                        m_9829_(new ClientboundAddEntityPacket(entity));
++                     if ((target instanceof Bucketable && target instanceof LivingEntity && origItem != null && origItem.m_5456_() == Items.f_42447_) && (event.isCancelled() || f_9743_.m_150109_().m_36056_() == null || f_9743_.m_150109_().m_36056_().m_41720_() != origItem)) {
++                        m_9829_(new ClientboundAddEntityPacket(target));
 +                        f_9743_.f_36096_.m_150429_();
 +                     }
 +
 +                     if (triggerLeashUpdate && (event.isCancelled() || f_9743_.m_150109_().m_36056_() == null || f_9743_.m_150109_().m_36056_().m_41720_() != origItem)) {
 +                        // Refresh the current leash state
-+                        m_9829_(new ClientboundSetEntityLinkPacket(entity, ((Mob) entity).m_21524_()));
++                        m_9829_(new ClientboundSetEntityLinkPacket(target, ((Mob) target).m_21524_()));
 +                     }
 +
 +                     if (event.isCancelled() || f_9743_.m_150109_().m_36056_() == null || f_9743_.m_150109_().m_36056_().m_41720_() != origItem) {
 +                        // Refresh the current entity metadata
-+                        entity.m_20088_().refresh(f_9743_);
++                        target.m_20088_().refresh(f_9743_);
 +                        // SPIGOT-7136 - Allays
-+                        if (entity instanceof Allay) {
-+                           m_9829_(new ClientboundSetEquipmentPacket(entity.m_19879_(), Arrays.stream(net.minecraft.world.entity.EquipmentSlot.values()).map(new Function<net.minecraft.world.entity.EquipmentSlot, Pair<net.minecraft.world.entity.EquipmentSlot, ItemStack>>() {
++                        if (target instanceof Allay) {
++                           m_9829_(new ClientboundSetEquipmentPacket(target.m_19879_(), Arrays.stream(net.minecraft.world.entity.EquipmentSlot.values()).map(new Function<net.minecraft.world.entity.EquipmentSlot, Pair<net.minecraft.world.entity.EquipmentSlot, ItemStack>>() {
 +                               @Override
 +                               public Pair<net.minecraft.world.entity.EquipmentSlot, ItemStack> apply(net.minecraft.world.entity.EquipmentSlot slot) {
-+                                   return Pair.of(slot, ((LivingEntity) entity).m_6844_(slot).m_41777_());
++                                   return Pair.of(slot, ((LivingEntity) target).m_6844_(slot).m_41777_());
 +                               }
 +                           }).collect(Collectors.toList())));
 +                           f_9743_.f_36096_.m_150429_();
@@ -1442,29 +1462,30 @@
 +                        return;
 +                     }
 +                     // CraftBukkit end
-                      InteractionResult interactionresult = p_143680_.m_143694_(ServerGamePacketListenerImpl.this.f_9743_, entity, p_143679_);
++                     InteractionResult interactionresult = p_143680_.m_143694_(ServerGamePacketListenerImpl.this.f_9743_, target, p_143679_);
 +                     // CraftBukkit start
 +                     if (!itemInHand.m_41619_() && itemInHand.m_41613_() <= -1) {
 +                        f_9743_.f_36096_.m_150429_();
 +                     }
 +                     // CraftBukkit end
                       if (interactionresult.m_19077_()) {
-                         CriteriaTriggers.f_10565_.m_61494_(ServerGamePacketListenerImpl.this.f_9743_, itemstack1, entity);
+-                        CriteriaTriggers.f_10565_.m_61494_(ServerGamePacketListenerImpl.this.f_9743_, itemstack1, entity);
++                        CriteriaTriggers.f_10565_.m_61494_(ServerGamePacketListenerImpl.this.f_9743_, itemstack1, target);
                          if (interactionresult.m_19080_()) {
+                            ServerGamePacketListenerImpl.this.f_9743_.m_21011_(p_143679_, true);
+                         }
 @@ -1458,20 +_,30 @@
                 }
  
                 public void m_142299_(InteractionHand p_143677_) {
--                  this.m_143678_(p_143677_, Player::m_36157_);
-+                  event = new PlayerInteractEntityEvent(getCraftPlayer(), entity.getBukkitEntity(), (p_143677_ == InteractionHand.OFF_HAND) ? EquipmentSlot.OFF_HAND : EquipmentSlot.HAND);
-+                  this.performInteraction(p_143677_, Player::m_36157_);
++                  event = new PlayerInteractEntityEvent(getCraftPlayer(), target.getBukkitEntity(), (p_143677_ == InteractionHand.OFF_HAND) ? EquipmentSlot.OFF_HAND : EquipmentSlot.HAND);
+                   this.m_143678_(p_143677_, Player::m_36157_);
                 }
  
                 public void m_142143_(InteractionHand p_143682_, Vec3 p_143683_) {
--                  this.m_143678_(p_143682_, (p_143686_, p_143687_, p_143688_) -> {
-+                  event = new PlayerInteractAtEntityEvent(getCraftPlayer(), entity.getBukkitEntity(), new org.bukkit.util.Vector(p_143683_.f_82479_, p_143683_.f_82480_, p_143683_.f_82481_), (p_143682_ == InteractionHand.OFF_HAND) ? EquipmentSlot.OFF_HAND : EquipmentSlot.HAND);
-+                  this.performInteraction(p_143682_, (p_143686_, p_143687_, p_143688_) -> {
-+                     InteractionResult onInteractEntityAtResult = net.minecraftforge.common.ForgeHooks.onInteractEntityAt(f_9743_, entity, p_143683_, p_143682_);
++                  event = new PlayerInteractAtEntityEvent(getCraftPlayer(), target.getBukkitEntity(), new org.bukkit.util.Vector(p_143683_.f_82479_, p_143683_.f_82480_, p_143683_.f_82481_), (p_143682_ == InteractionHand.OFF_HAND) ? EquipmentSlot.OFF_HAND : EquipmentSlot.HAND);
+                   this.m_143678_(p_143682_, (p_143686_, p_143687_, p_143688_) -> {
++                     InteractionResult onInteractEntityAtResult = net.minecraftforge.common.ForgeHooks.onInteractEntityAt(f_9743_, target, p_143683_, p_143682_);
 +                     if (onInteractEntityAtResult != null) return onInteractEntityAtResult;
                       return p_143687_.m_7111_(p_143686_, p_143683_, p_143688_);
                    });
@@ -1473,10 +1494,12 @@
                 public void m_141994_() {
 -                  if (!(entity instanceof ItemEntity) && !(entity instanceof ExperienceOrb) && !(entity instanceof AbstractArrow) && entity != ServerGamePacketListenerImpl.this.f_9743_) {
 +                  // CraftBukkit
-+                  if (!(entity instanceof ItemEntity) && !(entity instanceof ExperienceOrb) && !(entity instanceof AbstractArrow) && (entity != ServerGamePacketListenerImpl.this.f_9743_ || f_9743_.m_5833_())) {
++                  if (!(target instanceof ItemEntity) && !(target instanceof ExperienceOrb) && !(target instanceof AbstractArrow) && (target != ServerGamePacketListenerImpl.this.f_9743_ || f_9743_.m_5833_())) {
                       ItemStack itemstack = ServerGamePacketListenerImpl.this.f_9743_.m_21120_(InteractionHand.MAIN_HAND);
-                      if (itemstack.m_246617_(serverlevel.m_246046_())) {
-                         ServerGamePacketListenerImpl.this.f_9743_.m_5706_(entity);
+-                     if (itemstack.m_246617_(serverlevel.m_246046_())) {
+-                        ServerGamePacketListenerImpl.this.f_9743_.m_5706_(entity);
++                     if (itemstack.m_246617_(level.m_246046_())) {
++                        ServerGamePacketListenerImpl.this.f_9743_.m_5706_(target);
 +                        // CraftBukkit start
 +                        if (!itemstack.m_41619_() && itemstack.m_41613_() <= -1) {
 +                           f_9743_.f_36096_.m_150429_();
