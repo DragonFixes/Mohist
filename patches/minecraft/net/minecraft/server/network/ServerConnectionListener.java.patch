@@ -24,7 +24,7 @@
        synchronized(this.f_9703_) {
           Class<? extends ServerSocketChannel> oclass;
           LazyLoadedValue<? extends EventLoopGroup> lazyloadedvalue;
-@@ -84,7 +_,7 @@
+@@ -84,15 +_,37 @@
                 } catch (ChannelException channelexception) {
                 }
  
@@ -33,8 +33,30 @@
                 Connection.m_264299_(channelpipeline, PacketFlow.SERVERBOUND);
                 int i = ServerConnectionListener.this.f_9702_.m_7032_();
                 Connection connection = (Connection)(i > 0 ? new RateKickingConnection(i) : new Connection(PacketFlow.SERVERBOUND));
-@@ -92,7 +_,7 @@
+                ServerConnectionListener.this.f_9704_.add(connection);
                 channelpipeline.addLast("packet_handler", connection);
++               // Paper start - PROXY protocol: the proxy sends a PROXY header before any Minecraft data,
++               // and the client address it carries replaces the proxy's own address on the connection.
++               if (com.mohistmc.MohistConfig.proxy_protocol) {
++                  channelpipeline.addAfter("timeout", "haproxy-decoder", new io.netty.handler.codec.haproxy.HAProxyMessageDecoder());
++                  channelpipeline.addAfter("haproxy-decoder", "haproxy-handler", new ChannelInboundHandlerAdapter() {
++                     @Override
++                     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
++                        if (msg instanceof io.netty.handler.codec.haproxy.HAProxyMessage message) {
++                           try {
++                              if (message.command() == io.netty.handler.codec.haproxy.HAProxyCommand.PROXY && message.sourceAddress() != null) {
++                                 connection.f_129469_ = new java.net.InetSocketAddress(message.sourceAddress(), message.sourcePort());
++                              }
++                           } finally {
++                              message.release();
++                           }
++                        } else {
++                           super.channelRead(ctx, msg);
++                        }
++                     }
++                  });
++               }
++               // Paper end
                 connection.m_129505_(new ServerHandshakePacketListenerImpl(ServerConnectionListener.this.f_9702_, connection));
              }
 -         }).group(lazyloadedvalue.m_13971_()).localAddress(p_9712_, p_9713_).bind().syncUninterruptibly());

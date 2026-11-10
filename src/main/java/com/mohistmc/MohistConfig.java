@@ -232,6 +232,9 @@ public class MohistConfig {
     public static boolean velocity_enabled;
     public static boolean velocity_onlineMode;
     public static String velocity_secret;
+    // Accept the HAProxy PROXY protocol (v1/v2) header from a proxy in front of the server.
+    // Every connection must then start with that header, so only enable it behind such a proxy.
+    public static boolean proxy_protocol;
 
     public static boolean recipe_warn;
 
@@ -324,6 +327,7 @@ public class MohistConfig {
         velocity_enabled = getBoolean("velocity.enabled", false);
         velocity_onlineMode = getBoolean("velocity.onlineMode", false);
         velocity_secret = getString("velocity.secret", "");
+        proxy_protocol = getBoolean("proxies.proxy-protocol", false);
 
         recipe_warn = getBoolean("recipe.warn", false);
         tpa_enable = getBoolean("tpa.enable", false);
