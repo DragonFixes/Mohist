@@ -298,15 +298,15 @@ public class MohistConfig {
 
         clear_enable = getBoolean("entity.clear.enable", false);
         clear_time = getInt("entity.clear.time", 1800);
-        clear_countdown_msg = getString("entity.clear.countdown.msg", "[Server] §cItems will be cleared after %seconds% seconds！");
+        clear_countdown_msg = getString("entity.clear.countdown.msg", "§8[§3Server§8] §7Items will be cleared in §e%seconds% §7seconds§8!");
 
         clear_item = getBoolean("entity.clear.item.enable", false);
         clear_item_whitelist = getStringList("entity.clear.item.whitelist", new ArrayList<>());
-        clear_item_msg = getString("entity.clear.item.msg", "[Server] Cleaned up %size% drop item");
+        clear_item_msg = getString("entity.clear.item.msg", "§8[§3Server§8] §7Cleaned up §a%size% §7dropped items§8.");
 
         clear_noitem = getBoolean("entity.clear.noitem.enable", false);
         clear_noitem_whitelist = getStringList("entity.clear.noitem.whitelist", new ArrayList<>());
-        clear_noitem_msg = getString("entity.clear.noitem.msg", "[Server] Cleaned up %size% monster");
+        clear_noitem_msg = getString("entity.clear.noitem.msg", "§8[§3Server§8] §7Cleaned up §a%size% §7mobs§8.");
 
         ban_item_enable = getBoolean("ban.item.enable" , false);
         ban_item_materials = getStringList("ban.item.list", new ArrayList<>());
@@ -318,7 +318,7 @@ public class MohistConfig {
         motdFirstLine = getString("motd.firstline", "<RAINBOW1>A Minecraft Server</RAINBOW>");
         motdSecondLine = getString("motd.secondline", "");
 
-        pingCommandOutput = getString("settings.messages.ping-command-output", "§2%s's ping is %sms");
+        pingCommandOutput = getString("settings.messages.ping-command-output", "§b%s§7's ping is §a%sms");
 
         doFireTick = getBoolean("events.fire_tick", false);
         explosion = getBoolean("events.explosion", false);
@@ -340,7 +340,7 @@ public class MohistConfig {
         permissions_send_player = getBoolean("permissions.debug.player", false);
         async_save_world = getBoolean("world.async_save", false);
 
-        message_require_forge = getString("message.require_forge", "This server has mods that require Forge to be installed on the client. Contact your server admin for more details.");
+        message_require_forge = getString("message.require_forge", "§cThis server has mods that require §eForge §cto be installed on the client§8. §7Contact your server admin for more details§8.");
         server_mod_name = getString("server_mod_name", "mohist");
 
         deepseek_enable = getBoolean("deepseek.enable", false);
