@@ -711,7 +711,7 @@
        } else {
 -         Direction.Axis direction$axis = this.m_9236_().m_8055_(this.f_19819_).m_61145_(NetherPortalBlock.f_54904_).orElse(Direction.Axis.X);
 -         Optional<BlockUtil.FoundRectangle> optional1 = p_184131_.m_8871_().m_77666_(p_184132_, direction$axis);
-+         Axis direction$axis = this.f_19853_.m_8055_(this.f_19819_).m_61145_(NetherPortalBlock.f_54904_).orElse(Axis.X);
++         Axis direction$axis = this.m_9236_().m_8055_(this.f_19819_).m_61145_(NetherPortalBlock.f_54904_).orElse(Axis.X);
 +         Optional<FoundRectangle> optional1 = p_184131_.m_8871_().m_77666_(p_184132_, direction$axis);
           if (!optional1.isPresent()) {
              f_8907_.error("Unable to create a portal, likely target out of worldborder");
